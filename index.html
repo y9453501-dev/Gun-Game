@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lab</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.9.1/nipplejs.min.js"></script>
+    <style>
+        /* Mavi barı ve tüm boşlukları yok et */
+        body { margin: 0; padding: 0; overflow: hidden; background: #fff; touch-action: none; font-family: sans-serif; }
+        
+        #ui { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99; pointer-events: none; }
+        
+        /* Üst butonlar - Doğrudan ekranın üstüne yapışık ve şeffaf */
+        .top-bar { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; pointer-events: auto; }
+        .s-btn { padding: 5px 10px; background: rgba(255,255,255,0.3); border: 1px solid rgba(0,0,0,0.1); border-radius: 4px; font-size: 10px; color: #999; cursor: pointer; }
+
+        /* Envanter - Altta temiz daireler */
+        .inv { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; pointer-events: auto; }
+        .slot { width: 45px; height: 45px; background: rgba(255,255,255,0.8); border: 1px solid #eee; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #666; font-size: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+
+        /* Kontroller */
+        #joy { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; pointer-events: auto; opacity: 0.5; }
+        #fire { position: absolute; bottom: 40px; right: 40px; width: 90px; height: 90px; background: rgba(255,255,255,0.5); border: 1px solid #ddd; border-radius: 50%; pointer-events: auto; display: flex; justify-content: center; align-items: center; }
+        #fire::after { content: ''; width: 25px; height: 25px; border: 1px solid #bbb; border-radius: 50%; }
+        
+        #cross { position: fixed; top: 50%; left: 50%; width: 10px; height: 10px; border: 1px solid rgba(0,0,0,0.2); border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 100; }
+    </style>
+</head>
+<body>
+
+    <div id="cross"></div>
+    <div id="ui">
+        <div class="top-bar">
+            <div style="display: flex; gap: 5px;">
+                <div class="s-btn" onclick="setL('tr')">TR</div>
+                <div class="s-btn" onclick="setL('en')">EN</div>
+            </div>
+            <div class="s-btn" onclick="goFS()">FULL</div>
+        </div>
+
+        <div class="inv">
+            <div class="slot" onclick="sG(1)">1</div>
+            <div class="slot" onclick="sG(2)">2</div>
+            <div class="slot" onclick="sG(3)">3</div>
+            <div class="slot" onclick="sG(4)">4</div>
+        </div>
+        
+        <div id="joy"></div>
+        <div id="fire"></div>
+    </div>
+
+    <a-scene vr-mode-ui="enabled: false" embedded style="height: 100vh; width: 100vw;">
+        <a-assets>
+            <a-asset-item id="s1" src="silah1.glb"></a-asset-item>
+            <a-asset-item id="s2" src="silah2.glb"></a-asset-item>
+            <a-asset-item id="s3" src="silah3.glb"></a-asset-item>
+            <a-asset-item id="s4" src="silah4.glb"></a-asset-item>
+        </a-assets>
+
+        <a-sky color="#fff"></a-sky>
+        <a-box position="0 5 0" width="60" height="15" depth="60" side="back" material="color: #ffffff; shader: flat"></a-box>
+        <a-grid position="0 0.02 0" cell-size="5" section-size="10" color="#f5f5f5"></a-grid>
+
+        <a-entity id="rig" position="0 1.6 0">
+            <a-entity id="cam" camera look-controls="reverseTouchDrag: true">
+                <a-entity id="ray" raycaster="objects: a-box; far: 50"></a-entity>
+                <a-entity id="gun" gltf-model="#s1" position="0.3 -0.35 -0.6" rotation="0 180 0" scale="1 1 1"></a-entity>
+            </a-entity>
+        </a-entity>
+
+        <a-light type="ambient" intensity="1.5"></a-light>
+    </a-scene>
+
+    <script>
+        const gun = document.getElementById('gun');
+        const scene = document.querySelector('a-scene');
+
+        function sG(n) { gun.setAttribute('gltf-model', '#s' + n); }
+        function setL(l) { console.log(l); }
+        function goFS() {
+            let d = document.documentElement;
+            if (d.requestFullscreen) d.requestFullscreen();
+            else if (d.webkitRequestFullscreen) d.webkitRequestFullscreen();
+        }
+
+        document.getElementById('fire').ontouchstart = (e) => {
+            e.preventDefault();
+            gun.setAttribute('animation', "property: position; from: 0.3 -0.35 -0.6; to: 0.3 -0.35 -0.55; dur: 50; dir: alternate; loop: 2");
+            const hits = document.getElementById('ray').components.raycaster.intersections;
+            if (hits.length > 0) {
+                const h = document.createElement('a-circle');
+                h.setAttribute('position', hits[0].point);
+                h.setAttribute('radius', '0.03');
+                h.setAttribute('color', '#555');
+                scene.appendChild(h);
+            }
+        };
+
+        let f = 0, s = 0;
+        nipplejs.create({ zone: document.getElementById('joy'), mode: 'static', position: {left: '60px', bottom: '60px'}, color: '#eee' })
+        .on('move', (e, d) => {
+            f = -Math.sin(d.angle.radian) * d.force * 0.15;
+            s = -Math.cos(d.angle.radian) * d.force * 0.15;
+        }).on('end', () => { f = 0; s = 0; });
+
+        function update() {
+            if (f || s) {
+                const r = document.getElementById('cam').getAttribute('rotation');
+                const rad = r.y * (Math.PI / 180);
+                const p = document.getElementById('rig').getAttribute('position');
+                p.x += (f * Math.sin(rad) + s * Math.cos(rad));
+                p.z += (f * Math.cos(rad) - s * Math.sin(rad));
+                document.getElementById('rig').setAttribute('position', p);
+            }
+            requestAnimationFrame(update);
+        }
+        update();
+    </script>
+</body>
+</html>
